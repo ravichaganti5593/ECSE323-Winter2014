@@ -1,0 +1,107 @@
+--Ravi Chaganti - 260469339
+--Rohit Agarwal - 260465642
+library ieee; -- allows use of the std_logic_vector type
+--Ravi Chaganti - 260469339
+--Rohit Agarwal - 260465642
+use ieee.std_logic_1164.all;
+
+library ieee;
+use ieee.numeric_std.all; 
+
+library lpm; 
+use lpm.lpm_components.all;
+entity g09_HMS_Counter is --defined entity
+		port( clock, reset, sec_clock, count_enable, load_enable: in std_logic;
+		      H_Set: in std_logic_vector(4 downto 0);
+		      M_Set, S_Set: in std_logic_vector(5 downto 0);
+		      Hours: out std_logic_vector(4 downto 0);
+		      Minutes, Seconds: out std_logic_vector(5 downto 0);
+		      end_of_day: out std_logic;
+		      Test_Pulse : out std_logic
+		      );
+		end g09_HMS_Counter;
+
+architecture behavior of g09_HMS_Counter is --defined architecture
+signal Min_0_59_Enable:std_logic;
+signal Min_0_59_Enable_Buffer: std_logic;
+signal end_of_day_Buffer :std_logic;
+signal Sec_0_59_Reset:std_logic;
+signal Sec_0_59_Enable:std_logic;
+signal Min_0_59_Reset:std_logic;
+signal Hour_0_23_Reset:std_logic;
+signal Hour_0_23_Enable:std_logic;
+signal Hour_0_23_Enable_Buffer: std_logic;
+signal Sec_0_59_out:std_logic_vector (5 downto 0);
+signal Min_0_59_in:std_logic;
+signal Min_0_59_out:std_logic_vector (5 downto 0);
+signal Hour_0_23_in: std_logic;
+signal Hour_0_23_out:std_logic_vector (4 downto 0);
+begin 
+Sec_0_59_Reset <= '1' when(Sec_0_59_out = "111011") else '0';
+Sec_0_59_Enable<= sec_clock or load_enable;
+Seconds <= Sec_0_59_out;
+Min_0_59_Reset <= '1' when(Min_0_59_out = "111011") else '0';
+Min_0_59_Enable_Buffer<= '1' when(Sec_0_59_out = "111011") else '0';
+Min_0_59_Enable <= (Min_0_59_Enable_Buffer and sec_clock) or load_enable;
+Minutes <= Min_0_59_out;
+Hour_0_23_Reset <= '1' when(Hour_0_23_out = "10111") else '0';
+Hour_0_23_Enable_Buffer<= '1' when(Min_0_59_out = "111011" and Sec_0_59_out = "111011") else '0';
+Hour_0_23_Enable <= (Hour_0_23_Enable_Buffer and sec_clock) or load_enable;
+Hours <= Hour_0_23_out;
+end_of_day <= '1' when (Hour_0_23_out = "10111" and Min_0_59_out = "111011" and Sec_0_59_out = "111011" and sec_clock = '1')else '0';
+Sec_0to59 : lpm_counter
+	GENERIC MAP (
+		lpm_direction => "UP",
+		lpm_port_updown => "PORT_UNUSED",
+		lpm_type => "LPM_COUNTER",
+		lpm_width => 6
+	)
+	PORT MAP (
+		cnt_en=>count_enable,
+		clk_en => sec_clock,
+		sclr => Sec_0_59_Reset,
+		aclr=>reset,
+		clock => clock,
+		sload=> load_enable,
+		data =>S_Set,
+		q => Sec_0_59_out
+	);
+	
+Min_0to59 : lpm_counter
+	GENERIC MAP (
+		lpm_direction => "UP",
+		lpm_port_updown => "PORT_UNUSED",
+		lpm_type => "LPM_COUNTER",
+		lpm_width => 6
+	)
+	PORT MAP (
+		cnt_en=>count_enable,
+		clk_en => Min_0_59_Enable,
+		sclr => Min_0_59_Reset,
+		aclr=>reset,
+		clock => clock,
+		sload=> load_enable,
+		data =>M_Set,
+		q => Min_0_59_out
+	);
+		
+Hour_0to23 : lpm_counter
+	GENERIC MAP (
+		lpm_direction => "UP",
+		lpm_port_updown => "PORT_UNUSED",
+		lpm_type => "LPM_COUNTER",
+		lpm_width => 5
+	)
+	PORT MAP (
+		cnt_en=>count_enable,
+		clk_en => Hour_0_23_Enable,
+		sclr => Hour_0_23_Reset,
+		aclr=>reset,
+		clock => clock,
+		sload=> load_enable,
+		data =>H_Set,
+		q => Hour_0_23_out
+	);
+	
+end behavior;
+
